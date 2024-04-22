@@ -1,0 +1,19 @@
+{
+  "name": "myapp",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@azure/cognitiveservices-computervision": "^8.2.0",
+    "@tensorflow-models/universal-sentence-encoder": "^1.3.3",
+    "async": "^3.2.5",
+    "dotenv": "^16.4.5",
+    "ms-rest-azure": "^2.5.7",
+    "sqlite3": "^5.1.7"
+  }
+}
