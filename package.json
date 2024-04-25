@@ -1,7 +1,7 @@
 {
   "name": "myapp",
   "version": "1.0.0",
-  "description": "",
+  "description": "Aadhar_validation_backend",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -13,7 +13,15 @@
     "@tensorflow-models/universal-sentence-encoder": "^1.3.3",
     "async": "^3.2.5",
     "dotenv": "^16.4.5",
+    "electron": "^30.0.1",
+    "electron-dialog": "^2.0.0",
+    "mammoth": "^1.7.1",
     "ms-rest-azure": "^2.5.7",
+    "pdf-lib": "^1.17.1",
+    "pdf2pic": "^3.1.1",
+    "pdfjs-dist": "^4.1.392",
+    "pptx-parser": "^1.1.7-beta.9",
+    "prompt-sync": "^4.2.0",
     "sqlite3": "^5.1.7"
   }
 }

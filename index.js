@@ -4,12 +4,10 @@ const async = require('async');
 const fs = require('fs');
 const https = require('https');
 const path = require("path");
-const createReadStream = require('fs').createReadStream;
+const createReadStream = require('fs').createReadStream
 const sleep = require('util').promisify(setTimeout);
 const ComputerVisionClient = require('@azure/cognitiveservices-computervision').ComputerVisionClient;
 const ApiKeyCredentials = require('@azure/ms-rest-js').ApiKeyCredentials;
-const sqlite3 = require('sqlite3').verbose(); // Import SQLite3
-const readline = require('readline');
 
 /**
  * AUTHENTICATE
@@ -17,137 +15,77 @@ const readline = require('readline');
  */
 const key = process.env.VISION_KEY;
 const endpoint = process.env.VISION_ENDPOINT;
+
 const computerVisionClient = new ComputerVisionClient(
   new ApiKeyCredentials({ inHeader: { 'Ocp-Apim-Subscription-Key': key } }), endpoint);
-
 /**
- * Connect to SQLite database and create 'ocr_data' table if it doesn't exist
+ * END - Authenticate
  */
-const db = new sqlite3.Database('ocr_data.db', (err) => {
-  if (err) {
-    console.error('Error opening database:', err.message);
-  } else {
-    console.log('Connected to the SQLite database.');
-    // Create 'ocr_data' table if it doesn't exist
-    db.run('CREATE TABLE IF NOT EXISTS ocr_data (id INTEGER PRIMARY KEY, text TEXT)', (err) => {
-      if (err) {
-        console.error('Error creating table:', err.message);
-      } else {
-        console.log('Table "ocr_data" created successfully.');
-        // Call the initialize function to start OCR and database operations
-        initialize();
-      }
-    });
-  }
-});
 
-/**
- * Function to perform OCR and store data into the database
- */
-async function performOCRAndStore() {
+async function computerVision() {
   try {
-    const printedTextSampleURL = 'https://raw.githubusercontent.com/Azure-Samples/cognitive-services-sample-data-files/master/ComputerVision/Images/printed_text.jpg';
+    console.log('-------------------------------------------------');
+    console.log('READ PRINTED, HANDWRITTEN TEXT AND PDF');
+    console.log();
 
-    console.log('Read printed text from URL...', printedTextSampleURL.split('/').pop());
-    const printedResult = await readTextFromURL(computerVisionClient, printedTextSampleURL);
-    storeTextInDatabase(printedResult);
-  } catch (error) {
-    console.error('Error:', error);
-  }
-}
+    // Local file path containing printed and/or handwritten text.
+  //   const localImagePath = 'C:\\Users\\AMNIBE\\Downloads\\Bold-3D-Text-Effect-full.jpg';
+    const localImagePath = 'C:\\Users\\AMNIBE\\Downloads\\Bold-3D-Text-Effect-full.pdf';
+   // const localImagePath = 'C:/Users/AMNIBE/Downloads/Important+Instructions.docx';
 
-/**
- * Function to perform OCR on image URL
- */
-async function readTextFromURL(client, url) {
-  let result = await client.read(url);
-  let operation = result.operationLocation.split('/').slice(-1)[0];
-  
-  while (result.status !== "succeeded") {
-    await sleep(1000);
-    result = await client.getReadResult(operation);
-  }
-  
-  return result.analyzeResult.readResults;
-}
+    // Recognize text in the local image
+    console.log('Read printed text from local file...');
+    const printedResult = await readTextFromFile(computerVisionClient, localImagePath);
+    printRecText(printedResult);
 
-/**
- * Function to store OCR text in the database
- */
-function storeTextInDatabase(readResults) {
-  for (const page in readResults) {
-    const result = readResults[page];
-    if (result.lines.length) {
-      for (const line of result.lines) {
-        const text = line.words.map(w => w.text).join(' ');
-        // Insert the OCR text into the database
-        db.run('INSERT INTO ocr_data (text) VALUES (?)', [text], (err) => {
-          if (err) {
-            console.error('Error inserting OCR text into database:', err);
-          } else {
-            console.log('OCR text inserted into database:', text);
-          }
-        });
+    // Function to read text from a local file
+    async function readTextFromFile(client, filePath) {
+      try {
+        // Read the file content
+        const imageData = fs.readFileSync(filePath);
+
+        // Call the API to recognize text in the image data
+        let result = await client.readInStream(imageData);
+
+        // Operation ID is last path segment of operationLocation (a URL)
+        let operation = result.operationLocation.split('/').slice(-1)[0];
+
+        // Wait for read recognition to complete
+        while (result.status !== "succeeded") {
+          await sleep(1000);
+          result = await client.getReadResult(operation);
+        }
+        return result.analyzeResult.readResults; // Return the first page of result. Replace [0] with the desired page if this is a multi-page file such as .pdf or .tiff.
+      } catch (error) {
+        console.error('Error reading file or calling the API:', error);
+        throw error; // Rethrow the error to be caught by the caller
       }
     }
+
+    // Function to print recognized text
+    function printRecText(readResults) {
+      console.log('Recognized text:');
+      for (const page in readResults) {
+        if (readResults.length > 1) {
+          console.log(`==== Page: ${page}`);
+        }
+        const result = readResults[page];
+        if (result.lines.length) {
+          for (const line of result.lines) {
+            console.log(line.words.map(w => w.text).join(' '));
+          }
+        } else {
+          console.log('No recognized text.');
+        }
+      }
+    }
+
+    console.log();
+    console.log('-------------------------------------------------');
+    console.log('End of quickstart.');
+  } catch (error) {
+    console.error('An error occurred:', error);
   }
 }
 
-/**
- * Function to fetch data from the database
- */
-function fetchDataFromDatabase(callback) {
-  db.all('SELECT * FROM ocr_data', (err, rows) => {
-    if (err) {
-      console.error('Error fetching data from database:', err);
-      callback(err, null);
-    } else {
-      callback(null, rows);
-    }
-  });
-}
-
-/**
- * Function to ask questions and handle user input
- */
-function askQuestions() {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
-
-  rl.question('Do you want to fetch OCR data from the database? (yes/no) ', (answer) => {
-    if (answer.toLowerCase() === 'yes') {
-      fetchDataFromDatabase((err, data) => {
-        if (err) {
-          console.error('Error fetching data:', err);
-        } else {
-          console.log('OCR data fetched from the database:', data);
-        }
-        rl.close();
-      });
-    } else {
-      console.log('No data fetched. Exiting...');
-      rl.close();
-    }
-  });
-}
-
-/**
- * Initialize OCR and database operations
- */
-function initialize() {
-  async.series([
-    async function () {
-      await performOCRAndStore();
-    }
-  ], (err) => {
-    if (err) {
-      console.error('Error:', err);
-    } else {
-      console.log('OCR and database operations completed successfully.');
-      // After OCR and database operations complete, ask questions
-      askQuestions();
-    }
-  });
-}
+computerVision();
